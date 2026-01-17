@@ -1,75 +1,81 @@
-import type { WorkflowRunPayload, NotificationInfo, CIResult } from './types';
+import type { GitHubErrorInfo } from './types';
 
 /**
- * GitHub Webhook署名を検証
- * Web Crypto APIを使用 (Node.js cryptoは使用不可)
+ * GitHub Webhook署名検証(HMAC-SHA256)
+ * @param signature リクエストヘッダーのX-Hub-Signature-256
+ * @param body リクエストボディ(文字列)
+ * @param secret Webhook Secret
+ * @returns 検証結果
  */
-export async function verifySignature(
-  payload: string,
+export async function verifyGitHubSignature(
   signature: string,
+  body: string,
   secret: string
 ): Promise<boolean> {
-  if (!signature.startsWith('sha256=')) {
+  if (!signature || !signature.startsWith('sha256=')) {
     return false;
   }
 
-  const expectedSignature = signature.slice(7);
   const encoder = new TextEncoder();
+  const key = encoder.encode(secret);
+  const data = encoder.encode(body);
 
   try {
-    const key = await crypto.subtle.importKey(
+    // Web Crypto APIでHMACキーをインポート
+    const cryptoKey = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(secret),
+      key,
       { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ['sign']
+      ['verify']
     );
 
-    const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
-    const computedSignature = Array.from(new Uint8Array(signatureBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    // 署名のhex文字列をバイト列に変換
+    const signatureHex = signature.replace('sha256=', '');
+    const signatureBytes = hexToBytes(signatureHex);
 
-    // タイミング攻撃対策: 固定時間比較
-    if (expectedSignature.length !== computedSignature.length) {
-      return false;
-    }
-
-    let result = 0;
-    for (let i = 0; i < expectedSignature.length; i++) {
-      result |= expectedSignature.charCodeAt(i) ^ computedSignature.charCodeAt(i);
-    }
-    return result === 0;
+    // HMAC検証(constant-time比較)
+    return await crypto.subtle.verify('HMAC', cryptoKey, signatureBytes, data);
   } catch {
     return false;
   }
 }
 
 /**
- * workflow_runイベントを解析してNotificationInfoを返す
- * 成功/失敗以外(cancelled, skipped, 未完了)はnullを返す
+ * hex文字列をUint8Arrayに変換
  */
-export function parseWorkflowRun(payload: WorkflowRunPayload): NotificationInfo | null {
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * GitHub Webhookペイロードを解析してCI失敗情報を抽出
+ * @param payload GitHubからのWebhookペイロード
+ * @returns CI失敗情報(失敗でない場合はnull)
+ */
+export function parseWebhook(payload: any): GitHubErrorInfo | null {
+  // workflow_run イベントの completed アクションのみ処理
   if (payload.action !== 'completed') {
     return null;
   }
 
-  const conclusion = payload.workflow_run.conclusion;
-  if (conclusion !== 'success' && conclusion !== 'failure') {
+  const run = payload.workflow_run;
+  if (!run || run.conclusion !== 'failure') {
     return null;
   }
 
-  const result: CIResult = conclusion;
-
+  // 失敗情報を抽出
   return {
-    result,
-    workflowName: payload.workflow_run.name,
-    repositoryName: payload.repository.full_name,
-    repositoryUrl: payload.repository.html_url,
-    branch: payload.workflow_run.head_branch,
-    commitSha: payload.workflow_run.head_sha,
-    runUrl: payload.workflow_run.html_url,
-    runNumber: payload.workflow_run.run_number,
-    sender: payload.sender.login,
+    repo: payload.repository.full_name,
+    workflow: run.name,
+    branch: run.head_branch,
+    commit: run.head_sha,
+    commitMsg: run.head_commit?.message || '',
+    url: run.html_url,
+    author: run.head_commit?.author?.name || 'Unknown',
   };
 }
