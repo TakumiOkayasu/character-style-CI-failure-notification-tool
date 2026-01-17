@@ -1,56 +1,31 @@
 /**
- * Cloudflare Workers環境変数
+ * Cloudflare Workers環境変数の型定義
  */
 export interface Env {
+  // GitHub Webhook検証用Secret
   GITHUB_WEBHOOK_SECRET: string;
+
+  // Anthropic API Key
   ANTHROPIC_API_KEY: string;
+
+  // Discord Webhook URL
   DISCORD_WEBHOOK_URL: string;
-  NOTIFICATION_HISTORY: KVNamespace;
+
+  // Workers KV Namespace(口調履歴保存用)
+  HOLO_HISTORY: KVNamespace;
 }
 
 /**
- * GitHub workflow_run イベントのペイロード
+ * GitHub CI失敗情報
  */
-export interface WorkflowRunPayload {
-  action: string;
-  workflow_run: {
-    id: number;
-    name: string;
-    head_branch: string;
-    head_sha: string;
-    conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | null;
-    html_url: string;
-    run_number: number;
-    run_attempt: number;
-  };
-  repository: {
-    full_name: string;
-    html_url: string;
-  };
-  sender: {
-    login: string;
-    avatar_url: string;
-  };
-}
-
-/**
- * CI結果の種別
- */
-export type CIResult = 'success' | 'failure';
-
-/**
- * 通知情報
- */
-export interface NotificationInfo {
-  result: CIResult;
-  workflowName: string;
-  repositoryName: string;
-  repositoryUrl: string;
-  branch: string;
-  commitSha: string;
-  runUrl: string;
-  runNumber: number;
-  sender: string;
+export interface GitHubErrorInfo {
+  repo: string;          // リポジトリ名(例: owner/repo)
+  workflow: string;      // ワークフロー名
+  branch: string;        // ブランチ名
+  commit: string;        // コミットハッシュ(フル)
+  commitMsg: string;     // コミットメッセージ
+  url: string;           // GitHub Actions実行URL
+  author: string;        // コミット作者
 }
 
 /**
@@ -60,23 +35,20 @@ export interface DiscordEmbed {
   title: string;
   description: string;
   color: number;
-  fields?: Array<{
+  fields: Array<{
     name: string;
     value: string;
-    inline?: boolean;
+    inline: boolean;
   }>;
-  footer?: {
+  footer: {
     text: string;
   };
-  timestamp?: string;
+  url: string;
 }
 
 /**
- * Discord Webhookペイロード
+ * Discord Webhook送信ペイロード
  */
 export interface DiscordWebhookPayload {
-  content?: string;
-  embeds?: DiscordEmbed[];
-  username?: string;
-  avatar_url?: string;
+  embeds: DiscordEmbed[];
 }

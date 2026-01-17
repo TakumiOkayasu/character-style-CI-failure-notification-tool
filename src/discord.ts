@@ -1,84 +1,45 @@
-import type { NotificationInfo, DiscordWebhookPayload, DiscordEmbed } from './types';
-import type { FetchFn } from './claude';
-
-const HOLO_AVATAR_URL = 'https://i.imgur.com/8ZKqMqL.png';
+import type { GitHubErrorInfo, DiscordWebhookPayload } from './types';
 
 /**
- * Discord Embed用のペイロードを構築
+ * ホロ口調メッセージをDiscordに送信
+ * @param message ホロ口調化されたメッセージ
+ * @param errorInfo CI失敗情報
+ * @param webhookUrl Discord Webhook URL
  */
-export function buildDiscordPayload(
-  info: NotificationInfo,
-  holoMessage: string
-): DiscordWebhookPayload {
-  const isSuccess = info.result === 'success';
-  const color = isSuccess ? 0x00ff00 : 0xff0000;
-  const statusText = isSuccess ? '✅ CI 成功' : '❌ CI 失敗';
-  const shortSha = info.commitSha.slice(0, 7);
-
-  const embed: DiscordEmbed = {
-    title: `${statusText}: ${info.workflowName}`,
-    description: holoMessage,
-    color,
-    fields: [
+export async function sendToDiscord(
+  message: string,
+  errorInfo: GitHubErrorInfo,
+  webhookUrl: string
+): Promise<void> {
+  const payload: DiscordWebhookPayload = {
+    embeds: [
       {
-        name: 'リポジトリ',
-        value: `[${info.repositoryName}](${info.repositoryUrl})`,
-        inline: true,
-      },
-      {
-        name: 'ブランチ',
-        value: info.branch,
-        inline: true,
-      },
-      {
-        name: 'コミット',
-        value: `[${shortSha}](${info.runUrl})`,
-        inline: true,
-      },
-      {
-        name: '実行者',
-        value: info.sender,
-        inline: true,
-      },
-      {
-        name: '実行番号',
-        value: `#${info.runNumber}`,
-        inline: true,
+        title: '🐺 CI失敗のお知らせじゃ',
+        description: message,
+        color: 0xed4245, // 赤色
+        fields: [
+          { name: '📦 リポジトリ', value: errorInfo.repo, inline: true },
+          { name: '🌿 ブランチ', value: errorInfo.branch, inline: true },
+          { name: '👤 作者', value: errorInfo.author, inline: true },
+          {
+            name: '💬 コミット',
+            value: errorInfo.commitMsg.substring(0, 100),
+            inline: false,
+          },
+        ],
+        footer: { text: `Commit: ${errorInfo.commit.substring(0, 7)}` },
+        url: errorInfo.url,
       },
     ],
-    footer: {
-      text: '賢狼ホロ CI通知',
-    },
-    timestamp: new Date().toISOString(),
   };
 
-  return {
-    username: '賢狼ホロ',
-    avatar_url: HOLO_AVATAR_URL,
-    embeds: [embed],
-  };
-}
-
-/**
- * Discord Webhookに通知を送信
- */
-export async function sendDiscordNotification(
-  webhookUrl: string,
-  info: NotificationInfo,
-  holoMessage: string,
-  fetchFn: FetchFn = fetch
-): Promise<void> {
-  const payload = buildDiscordPayload(info, holoMessage);
-
-  const response = await fetchFn(webhookUrl, {
+  const response = await fetch(webhookUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error(`Discord webhook error: ${response.status} ${response.statusText}`);
+    throw new Error(`Discord API error: ${response.status}`);
   }
 }
