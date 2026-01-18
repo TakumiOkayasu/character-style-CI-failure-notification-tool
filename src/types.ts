@@ -26,6 +26,7 @@ export interface GitHubErrorInfo {
   commitMsg: string;     // コミットメッセージ
   url: string;           // GitHub Actions実行URL
   author: string;        // コミット作者
+  conclusion: 'success' | 'failure'; // CI結果
 }
 
 /**

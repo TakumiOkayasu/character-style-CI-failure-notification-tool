@@ -64,11 +64,11 @@ export function parseWebhook(payload: any): GitHubErrorInfo | null {
   }
 
   const run = payload.workflow_run;
-  if (!run || run.conclusion !== 'failure') {
+  if (!run || !['success', 'failure'].includes(run.conclusion)) {
     return null;
   }
 
-  // 失敗情報を抽出
+  // CI結果情報を抽出
   return {
     repo: payload.repository.full_name,
     workflow: run.name,
@@ -77,5 +77,6 @@ export function parseWebhook(payload: any): GitHubErrorInfo | null {
     commitMsg: run.head_commit?.message || '',
     url: run.html_url,
     author: run.head_commit?.author?.name || 'Unknown',
+    conclusion: run.conclusion as 'success' | 'failure',
   };
 }

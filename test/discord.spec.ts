@@ -5,7 +5,7 @@ import type { GitHubErrorInfo } from '../src/types';
 describe('Discord Webhook', () => {
   const webhookUrl = 'https://discord.com/api/webhooks/123/abc';
 
-  const createErrorInfo = (): GitHubErrorInfo => ({
+  const createErrorInfo = (conclusion: 'success' | 'failure' = 'failure'): GitHubErrorInfo => ({
     repo: 'owner/repo',
     workflow: 'CI',
     branch: 'main',
@@ -13,6 +13,7 @@ describe('Discord Webhook', () => {
     commitMsg: 'fix: some bug',
     url: 'https://github.com/owner/repo/actions/runs/123',
     author: 'developer',
+    conclusion,
   });
 
   const createMockFetch = (ok: boolean, status = 200) =>
