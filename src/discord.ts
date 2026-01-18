@@ -12,13 +12,14 @@ export async function sendToDiscord(
   webhookUrl: string,
   fetchFn: typeof fetch = fetch
 ): Promise<void> {
+	const isSuccess = errorInfo.conclusion === 'success';
 	const payload: DiscordWebhookPayload = {
 		username: 'CI結果を教えてくれるホロ',
     embeds: [
       {
-        title: '🐺 CI失敗のお知らせじゃ',
+        title: isSuccess ? '🐺 CI成功じゃ!' : '🐺 CI失敗のお知らせじゃ',
         description: message,
-        color: 0xed4245, // 赤色
+        color: isSuccess ? 0x57f287 : 0xed4245, // 緑 or 赤
         fields: [
           { name: '📦 リポジトリ', value: errorInfo.repo, inline: true },
           { name: '🌿 ブランチ', value: errorInfo.branch, inline: true },

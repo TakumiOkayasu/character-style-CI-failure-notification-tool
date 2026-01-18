@@ -40,7 +40,9 @@ export async function convertToHolo(
   const recentList = history.length > 0 ? history.map((h) => `- ${h}`).join('\n') : '(初回)';
 
   // プロンプト構築
-  const prompt = `以下のCI失敗情報を日本語に翻訳し、「狼と香辛料」のホロの口調で伝えてください。
+  const isSuccess = errorInfo.conclusion === 'success';
+  const eventType = isSuccess ? 'CI成功' : 'CI失敗';
+  const prompt = `以下の${eventType}情報を日本語に翻訳し、「狼と香辛料」のホロの口調で伝えてください。
 
 【ホロの特徴】
 - 一人称: わっち
@@ -55,7 +57,7 @@ ${selectedTone}
 【最近使った口調】(これらとは違うニュアンスで)
 ${recentList}
 
-【CI失敗情報】
+【${eventType}情報】
 - リポジトリ: ${errorInfo.repo}
 - ワークフロー: ${errorInfo.workflow}
 - ブランチ: ${errorInfo.branch}
@@ -65,7 +67,7 @@ ${recentList}
 【変換ルール】
 1. 150-250文字程度で簡潔に
 2. 技術用語は適宜わかりやすく
-3. 失敗の事実を伝えつつ、ホロらしさを出す
+3. ${isSuccess ? '成功を喜びつつ' : '失敗の事実を伝えつつ'}、ホロらしさを出す
 4. 変換結果のみを出力(説明不要)
 
 【変換後】`;
